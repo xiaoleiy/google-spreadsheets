@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+  <meta charset="UTF-8">
+  <title>Self Timekeeping System</title>
+
+  <link rel="stylesheet" href="css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/flipclock.css">
+  <style rel="stylesheet">
+    .container {
+      border: 1px solid #e6e6e6;
+      margin-left: 0;
+      margin-right: 0;
+    }
+
+    .container .row {
+      margin-top: 20px;
+    }
+
+    .flip-color {
+      margin-left: 0;
+    }
+
+    .btn-success {
+      margin-right: 15px;
+      margin-bottom: 20px;
+      padding: 10px 26px;
+    }
+
+    .btn-danger {
+      margin-left: 15px;
+      margin-bottom: 20px;
+    }
+
+    .btn-success, .btn-danger {
+      border: 5px solid #000;
+      color: #000;
+      font-weight: bolder;
+    }
+
+    .btn-success:hover, .btn-danger:hover {
+      border: 5px solid #000;
+    }
+
+  </style>
+</head>
+<body>
+<!-- Header div -->
+<div class="container">
+  <div class="row">
+    <div class="col-md-3">
+      <h3>Date:</h3>
+    </div>
+    <div class="col-md-9">
+      <div class="flip-color"></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-md-3">
+      <h3>Employee:</h3>
+    </div>
+    <div class="col-md-9">
+      <div class="input-group input-group-lg">
+        <div class="input-group-btn">
+          <button id="selected_employee" type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">Select employee <span
+              class="caret"></span></button>
+          <ul id="employee_list" class="dropdown-menu" role="menu">
+          </ul>
+        </div>
+        <!-- /btn-group -->
+      </div>
+      <!-- /input-group -->
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-3">
+      <h3>Clock In/Out:</h3>
+    </div>
+    <div class="col-md-9">
+      <button id="click_in" type="button" class="btn btn-success btn-lg">IN</button>
+      <button id="click_out" type="button" class="btn btn-danger btn-lg">OUT</button>
+    </div>
+  </div>
+</div>
+
+<!-- include javascript libs -->
+<script type="text/javascript" src="js/jquery-1.11.1.js"></script>
+<script type="text/javascript" src="js/bootstrap.min.js"></script>
+<script type="text/javascript" src="js/flipclock.min.js"></script>
+<script type="text/javascript">
+  $(document).ready(function () {
+
+      var clock = $('div.flip-color').FlipClock({
+          clockFace: 'TwentyFourHourClock'
+      });
+
+      var menuHtmlTemplate = '<li><a id="_id_" href="#">_ename_</a></li>';
+      $.ajax({
+          url: 'employeeList.do',
+          type: 'GET',
+          dataType: 'json',
+          contentType: 'application/json',
+          mimeType: 'application/json',
+          success: function (data) {
+              var employeeList = data;
+              if (employeeList.length === 0) {
+                  alert('Employee list retrieval error!');
+                  return;
+              }
+
+              var ulEmployeeList = $('ul#employee_list');
+              $.each(employeeList, function(idx, employee){
+                  var employeeHTML = menuHtmlTemplate;
+                  ulEmployeeList.append(employeeHTML.replace(/_ename_/, employee).replace(/_id_/, 'employee_' + idx));
+              });
+
+              var selectedEmp = $('button#selected_employee');
+              ulEmployeeList.find('a').click(function(){
+                  var employeeName = $(this).text();
+                  selectedEmp.html(employeeName + '&nbsp;<span class="caret"></span>');
+                  selectedEmp.attr('value', employeeName);
+              });
+          },
+          error: function (XMLHttpRequest, textStatus, errorThrown) {
+              alert('Failed to retrieve employee list! status: ' + textStatus);
+          }
+      });
+
+      $('#click_in').click(function () {
+          var timeClickOut = clock.getTime().getDateObject();
+          var date = timeClickOut.getFullYear() + '-' + timeClickOut.getMonth() + '-' + timeClickOut.getDate();
+          var time = timeClickOut.getHours() + ':' + timeClickOut.getMinutes() + ':' + timeClickOut.getSeconds();
+          var selectedEmp = $('button#selected_employee').attr('value');
+          if (!selectedEmp) {
+              alert('Please select employee in the dropdown list and then clock in.');
+              return;
+          }
+
+          var param = 'isClockIn=true&EmployeeName=' + selectedEmp + '&Date=' + date + '&TimeIn=' + time;
+          $.ajax({
+              url: 'timesheetEntry.do',
+              type: 'POST',
+              data: param,
+              success: function (data) {
+                var isClickedIn = data;
+                if (!isClickedIn) {
+                    alert("Failed to clock in.");
+                } else {
+                    alert(selectedEmp + " clocked in at " + date + ' ' + time);
+                }
+              },
+              error: function (XMLHttpRequest, textStatus, errorThrown) {
+                  alert('Failed to clock in because of service connection failure! status: ' + textStatus);
+              }
+          });
+      });
+
+      $('#click_out').click(function () {
+          var timeClickOut = clock.getTime().getDateObject();
+          var date = timeClickOut.getFullYear() + '-' + timeClickOut.getMonth() + '-' + timeClickOut.getDate();
+          var time = timeClickOut.getHours() + ':' + timeClickOut.getMinutes() + ':' + timeClickOut.getSeconds();
+          var selectedEmp = $('button#selected_employee').attr('value');
+          if (!selectedEmp) {
+              alert('Please select valid employee and then clock out.');
+              return;
+          }
+
+          var param = 'isClockIn=false&EmployeeName=' + selectedEmp + '&Date=' + date + '&TimeOut=' + time;
+          $.ajax({
+              url: 'timesheetEntry.do',
+              type: 'POST',
+              data: param,
+              success: function (data) {
+                  var isClickedOut = data;
+                  if (!isClickedOut) {
+                      alert("Failed to clock out ");
+                  } else {
+                    alert(selectedEmp + " clocked out at " + date + ' ' + time);
+                  }
+              },
+              error: function (XMLHttpRequest, textStatus, errorThrown) {
+                  alert('Failed to clock in because of service communication failure! status: ' + textStatus);
+              }
+          });
+      });
+
+  });
+</script>
+</body>
+</html>
